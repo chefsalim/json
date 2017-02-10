@@ -32,23 +32,23 @@
 //! }
 //! ```
 
-#[cfg(not(feature = "preserve_order"))]
-use std::collections::{BTreeMap, btree_map};
+
+use error::{Error, ErrorCode};
 
 #[cfg(feature = "preserve_order")]
 use linked_hash_map::{self, LinkedHashMap};
-
-use std::fmt;
-use std::io;
-use std::str;
-use std::vec;
 
 use num_traits::NumCast;
 
 use serde::de;
 use serde::ser;
+#[cfg(not(feature = "preserve_order"))]
+use std::collections::{BTreeMap, btree_map};
 
-use error::{Error, ErrorCode};
+use std::fmt;
+use std::io;
+use std::str;
+use std::vec;
 
 /// Represents a key/value type.
 #[cfg(not(feature = "preserve_order"))]
@@ -174,13 +174,17 @@ impl Value {
         if !pointer.starts_with('/') {
             return None;
         }
-        let tokens = pointer.split('/').skip(1).map(|x| x.replace("~1", "/").replace("~0", "~"));
+        let tokens = pointer.split('/')
+            .skip(1)
+            .map(|x| x.replace("~1", "/").replace("~0", "~"));
         let mut target = self;
 
         for token in tokens {
             let target_opt = match *target {
                 Value::Object(ref map) => map.get(&token),
-                Value::Array(ref list) => parse_index(&token).and_then(|x| list.get(x)),
+                Value::Array(ref list) => {
+                    parse_index(&token).and_then(|x| list.get(x))
+                }
                 _ => return None,
             };
             if let Some(t) = target_opt {
@@ -230,14 +234,19 @@ impl Value {
     ///     assert_eq!(value.pointer("/x").unwrap(), &Value::Null);
     /// }
     /// ```
-    pub fn pointer_mut<'a>(&'a mut self, pointer: &str) -> Option<&'a mut Value> {
+    pub fn pointer_mut<'a>(
+        &'a mut self,
+        pointer: &str
+    ) -> Option<&'a mut Value> {
         if pointer == "" {
             return Some(self);
         }
         if !pointer.starts_with('/') {
             return None;
         }
-        let tokens = pointer.split('/').skip(1).map(|x| x.replace("~1", "/").replace("~0", "~"));
+        let tokens = pointer.split('/')
+            .skip(1)
+            .map(|x| x.replace("~1", "/").replace("~0", "~"));
         let mut target = self;
 
         for token in tokens {
@@ -246,7 +255,9 @@ impl Value {
             let target_once = target;
             let target_opt = match *target_once {
                 Value::Object(ref mut map) => map.get_mut(&token),
-                Value::Array(ref mut list) => parse_index(&token).and_then(move |x| list.get_mut(x)),
+                Value::Array(ref mut list) => {
+                    parse_index(&token).and_then(move |x| list.get_mut(x))
+                }
                 _ => return None,
             };
             if let Some(t) = target_opt {
@@ -915,7 +926,7 @@ impl ser::Serializer for Serializer {
     fn serialize_map_key<T: ser::Serialize>(
         &mut self,
         state: &mut MapState,
-        key: T,
+        key: T
     ) -> Result<(), Error> {
         match to_value(&key) {
             Value::String(s) => state.next_key = Some(s),
@@ -927,7 +938,7 @@ impl ser::Serializer for Serializer {
     fn serialize_map_value<T: ser::Serialize>(
         &mut self,
         state: &mut MapState,
-        value: T,
+        value: T
     ) -> Result<(), Error> {
         match state.next_key.take() {
             Some(key) => state.map.insert(key, to_value(&value)),
@@ -940,10 +951,7 @@ impl ser::Serializer for Serializer {
         Ok(())
     }
 
-    fn serialize_map_end(
-        &mut self,
-        state: MapState,
-    ) -> Result<(), Error> {
+    fn serialize_map_end(&mut self, state: MapState) -> Result<(), Error> {
         self.value = Value::Object(state.map);
         Ok(())
     }
@@ -966,10 +974,7 @@ impl ser::Serializer for Serializer {
         self.serialize_map_value(state, value)
     }
 
-    fn serialize_struct_end(
-        &mut self,
-        state: MapState
-    ) -> Result<(), Error> {
+    fn serialize_struct_end(&mut self, state: MapState) -> Result<(), Error> {
         self.serialize_map_end(state)
     }
 
@@ -1386,6 +1391,7 @@ pub fn to_value<T>(value: T) -> Value
 pub fn from_value<T>(value: Value) -> Result<T, Error>
     where T: de::Deserialize,
 {
+    println!("FROM_VALUE: {:?}", value);
     let mut de = Deserializer::new(value);
     de::Deserialize::deserialize(&mut de)
 }

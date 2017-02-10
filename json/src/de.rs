@@ -2,15 +2,15 @@
 //!
 //! This module provides for JSON deserialization with the type `Deserializer`.
 
-use std::{i32, u64};
-use std::io;
-use std::marker::PhantomData;
-
-use serde::de;
 
 use super::error::{Error, ErrorCode, Result};
 
 use read::{self, Read};
+
+use serde::de;
+use std::{i32, u64};
+use std::io;
+use std::marker::PhantomData;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -45,6 +45,7 @@ impl<Iter> de::Deserializer for Deserializer<Iter>
     fn deserialize<V>(&mut self, visitor: V) -> Result<V::Value>
         where V: de::Visitor,
     {
+        println!("DESERIALIZE called");
         self.0.deserialize(visitor)
     }
 
@@ -113,7 +114,8 @@ impl<R: Read> DeserializerImpl<R> {
     }
 
     fn end(&mut self) -> Result<()> {
-        if try!(self.parse_whitespace()) { // true if eof
+        if try!(self.parse_whitespace()) {
+            // true if eof
             Ok(())
         } else {
             Err(self.peek_error(ErrorCode::TrailingCharacters))
@@ -142,12 +144,14 @@ impl<R: Read> DeserializerImpl<R> {
 
     /// Error caused by a byte from next_char().
     fn error(&mut self, reason: ErrorCode) -> Error {
+        println!("ERROR: {:?}", reason);
         let pos = self.read.position();
         Error::Syntax(reason, pos.line, pos.column)
     }
 
     /// Error caused by a byte from peek().
     fn peek_error(&mut self, reason: ErrorCode) -> Error {
+        println!("ERROR: {:?}", reason);
         let pos = self.read.peek_position();
         Error::Syntax(reason, pos.line, pos.column)
     }
@@ -158,14 +162,16 @@ impl<R: Read> DeserializerImpl<R> {
     fn parse_whitespace(&mut self) -> Result<bool> {
         loop {
             match try!(self.peek()) {
-                Some(b) => match b {
-                    b' ' | b'\n' | b'\t' | b'\r' => {
-                        self.eat_char();
+                Some(b) => {
+                    match b {
+                        b' ' | b'\n' | b'\t' | b'\r' => {
+                            self.eat_char();
+                        }
+                        _ => {
+                            return Ok(false);
+                        }
                     }
-                    _ => {
-                        return Ok(false);
-                    }
-                },
+                }
                 None => return Ok(true),
             }
         }
@@ -174,7 +180,8 @@ impl<R: Read> DeserializerImpl<R> {
     fn parse_value<V>(&mut self, mut visitor: V) -> Result<V::Value>
         where V: de::Visitor,
     {
-        if try!(self.parse_whitespace()) { // true if eof
+        if try!(self.parse_whitespace()) {
+            // true if eof
             return Err(self.peek_error(ErrorCode::EOFWhileParsingValue));
         }
 
@@ -479,11 +486,7 @@ impl<R: Read> DeserializerImpl<R> {
         while let b'0'...b'9' = try!(self.peek_or_null()) {
             self.eat_char();
         }
-        visitor.visit_f64(if pos {
-            0.0
-        } else {
-            -0.0
-        })
+        visitor.visit_f64(if pos { 0.0 } else { -0.0 })
     }
 
     fn visit_f64_from_parts<V>(
@@ -521,11 +524,7 @@ impl<R: Read> DeserializerImpl<R> {
                 }
             }
         }
-        visitor.visit_f64(if pos {
-            f
-        } else {
-            -f
-        })
+        visitor.visit_f64(if pos { f } else { -f })
     }
 
     fn parse_object_colon(&mut self) -> Result<()> {
@@ -808,7 +807,8 @@ impl<'a, R: Read + 'a> de::MapVisitor for MapVisitor<'a, R> {
                 Err(de::value::Error::MissingField(field))
             }
 
-            fn deserialize_option<V>(
+            fn deserialize_option<V>
+                (
                 &mut self,
                 mut visitor: V
             ) -> std::result::Result<V::Value, Self::Error>
